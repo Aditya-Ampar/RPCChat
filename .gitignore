@@ -1,0 +1,21 @@
+# Go
+/bin/
+/dist/
+*.test
+*.out
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment / secrets
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
