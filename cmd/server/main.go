@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/rpc"
+	"github.com/Aditya-Ampar/RPCChat/internal/database"
 )
 
 type ChatService struct{}
@@ -23,9 +24,17 @@ func (c *ChatService) SendMessage(msg Message, reply *string) error {
 }
 
 func main() {
+
+	db, err := database.Open("chat.db")
+	if err != nil {
+		log.Fatal("Failed to Open Database", err)
+	}
+
+	defer db.Close()
+
 	chat := new(ChatService)
 
-	err := rpc.Register(chat)
+	err = rpc.Register(chat)
 
 	if err != nil {
 		log.Fatal("RPC registration failed:", err)
