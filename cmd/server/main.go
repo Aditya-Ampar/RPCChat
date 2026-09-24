@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/Aditya-Ampar/RPCChat/internal/database"
 	"log"
 	"net"
 	"net/rpc"
-	"github.com/Aditya-Ampar/RPCChat/internal/database"
 )
 
 type ChatService struct{}
@@ -28,6 +28,10 @@ func main() {
 	db, err := database.Open("chat.db")
 	if err != nil {
 		log.Fatal("Failed to Open Database", err)
+	}
+
+	if err := database.InitializeSchema(db); err != nil {
+		log.Fatal("Failed to initialize database schema:", err)
 	}
 
 	defer db.Close()
