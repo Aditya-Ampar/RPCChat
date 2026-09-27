@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/Aditya-Ampar/RPCChat/internal/database"
 	"log"
@@ -42,6 +43,16 @@ func main() {
 
 	if err != nil {
 		log.Fatal("RPC registration failed:", err)
+	}
+
+	cert, err := tls.LoadX509KeyPair("certs/server.crt", "certs/server.key")
+
+	if err != nil {
+		log.Fatalf("Failde to load TLS certification %v\n"+"Run ./generate-cert.sh first to create certs/", err)
+	}
+
+	tlsConfig := &tls.Config{
+		Certificated: []tls.Certificate{cert},
 	}
 
 	listener, err := net.Listen("tcp", ":8080")

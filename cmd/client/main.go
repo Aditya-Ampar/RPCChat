@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crpyto/tls"
 	"fmt"
 	"log"
 	"net/rpc"
@@ -12,11 +13,19 @@ type Message struct {
 }
 
 func main() {
-	client, err := rpc.Dial("tcp", "localhost:8080")
+
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	conn, err := tls.Dial("tcp", "localhost:8080", tlsConfig)
+
 	if err != nil {
 		log.Fatal("Failed to connect:", err)
 	}
+	defer conn.Close()
 
+	client := rpc.NewClent(conn)
 	defer client.Close()
 
 	message := Message{
