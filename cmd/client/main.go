@@ -1,7 +1,7 @@
 package main
 
 import (
-	"crpyto/tls"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/rpc"
@@ -25,7 +25,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	client := rpc.NewClent(conn)
+	client := rpc.NewClient(conn)
 	defer client.Close()
 
 	message := Message{

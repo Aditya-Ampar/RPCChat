@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/Aditya-Ampar/RPCChat/internal/database"
 	"log"
-	"net"
 	"net/rpc"
 )
 
@@ -52,10 +51,10 @@ func main() {
 	}
 
 	tlsConfig := &tls.Config{
-		Certificated: []tls.Certificate{cert},
+		Certificates: []tls.Certificate{cert},
 	}
 
-	listener, err := net.Listen("tcp", ":8080")
+	listener, err := tls.Listen("tcp", ":8080",tlsConfig)
 	if err != nil {
 		log.Fatal("Failed to listen:", err)
 	}
