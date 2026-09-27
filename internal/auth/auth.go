@@ -41,7 +41,7 @@ func (a *Authenticator) Authenticate(username, password string) (*Token, error) 
 		Value:     tokenStr,
 		Username:  username,
 		IssuedAt:  now,
-		ExpiredAt: now.Add(a.tokenDuration),
+		ExpiresAt: now.Add(a.tokenDuration),
 	}
 
 	a.mu.Lock()

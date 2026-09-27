@@ -3,19 +3,55 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/Aditya-Ampar/RPCChat/internal/auth"
 	"github.com/Aditya-Ampar/RPCChat/internal/database"
 	"log"
 	"net/rpc"
 )
 
-type ChatService struct{}
+type AuthRequest struct {
+	Username string
+	Password string
+}
+
+type AuthResponse struct {
+	Token string
+	Error string
+}
+
+type ChatService struct {
+	auth *auth.Authenticator
+}
 
 type Message struct {
+	Token   string
 	User    string
 	Content string
 }
 
+func (c *ChatService) Authenticate(req AuthRequest, resp *AuthResponse) error {
+	token, err := c.auth.Authenticate(req.Username, req.Password)
+
+	if err != nil {
+		resp.Error = err.Error()
+		return nil
+	}
+
+	resp.Token = token.Value
+	log.Printf("[AUTH] User %q authenticated, token issued", req.Username)
+	return nil
+}
+
 func (c *ChatService) SendMessage(msg Message, reply *string) error {
+	username, err := c.auth.Validate(msg.Token)
+	if err != nil {
+		return fmt.Errorf("Authentication required: %v", err)
+	}
+
+	if msg.User != username {
+		return fmt.Errorf("user mismatch: token is for %q, but message claims %q", username, msg.User)
+	}
+
 	log.Printf("[%s] %s", msg.User, msg.Content)
 
 	*reply = "Message received"
@@ -36,7 +72,11 @@ func main() {
 
 	defer db.Close()
 
-	chat := new(ChatService)
+	authenticator := auth.NewAuthenticator("dev-secret-key")
+
+	chat := &ChatService{
+		auth: authenticator,
+	}
 
 	err = rpc.Register(chat)
 
@@ -54,7 +94,7 @@ func main() {
 		Certificates: []tls.Certificate{cert},
 	}
 
-	listener, err := tls.Listen("tcp", ":8080",tlsConfig)
+	listener, err := tls.Listen("tcp", ":8080", tlsConfig)
 	if err != nil {
 		log.Fatal("Failed to listen:", err)
 	}

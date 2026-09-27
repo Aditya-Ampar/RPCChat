@@ -8,11 +8,22 @@ import (
 )
 
 type Message struct {
+	Token   string
 	User    string
 	Content string
 }
 
 func main() {
+
+	type AuthRequest struct {
+		Username string
+		Password string
+	}
+
+	type AuthResponse struct {
+		Token string
+		Error string
+	}
 
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
@@ -28,8 +39,28 @@ func main() {
 	client := rpc.NewClient(conn)
 	defer client.Close()
 
+	fmt.Println("Connected to server via TLS")
+
+	fmt.Println("\n[1] Authenticating...")
+	authReq := AuthRequest{
+		Username: "ampar",
+		Password: "password123",
+	}
+
+	var authResp AuthResponse
+
+	err = client.Call("ChatService.Authenticate", authReq, &authResp)
+	if err != nil {
+		log.Fatalf("Authentication failed: %s, authResp.Error")
+	}
+
+	token := authResp.Token
+	fmt.Printf("Authenticated! Token: %s\n", token[:16]+"...")
+
+	fmt.Println("n[2] Sending message...")
 	message := Message{
-		User:    "Aditya",
+		Token:   token,
+		User:    "ampar",
 		Content: "Hello from the RPC client!",
 	}
 
