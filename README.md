@@ -45,10 +45,10 @@ ChatService
 
 
 ## Current Limitation
-- Authentication
+- ~~Authentication~~
 - Authorization
-- TLS
+- ~~TLS~~
 - Persistent Storage
-- Input Validation
-- Rate Limiting
+- ~~Input Validation~~
+- ~~Rate Limiting~~
 - Security Monitoring
