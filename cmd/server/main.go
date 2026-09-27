@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Aditya-Ampar/RPCChat/internal/ratelimit"
 	"github.com/Aditya-Ampar/RPCChat/internal/auth"
 	"github.com/Aditya-Ampar/RPCChat/internal/database"
 )
@@ -15,6 +16,9 @@ import (
 const (
 	MaxContentBytes   = 64 * 1024 //1MiB
 	MaxUsernameLength = 32
+
+	RateLimitPerSecond = 20.0
+	RateLimitBurst     = 30.0
 )
 
 var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
@@ -30,7 +34,8 @@ type AuthResponse struct {
 }
 
 type ChatService struct {
-	auth *auth.Authenticator
+	auth    *auth.Authenticator
+	limiter *ratelimit.Limiter
 }
 
 type Message struct {
@@ -84,6 +89,10 @@ func (c *ChatService) SendMessage(msg Message, reply *string) error {
 		return fmt.Errorf("user mismatch: token is for %q, but message claims %q", username, msg.User)
 	}
 
+	if !c.limiter.Allow(username) {
+		return fmt.Errorf("rate limit exceeded: max %.0f calls/sec, please slow down", RateLimitPerSecond)
+	}
+
 	if err := validateMessage(msg); err != nil {
 		return fmt.Errorf("validation failed: %v", err)
 	}
@@ -107,9 +116,10 @@ func main() {
 	defer db.Close()
 
 	authenticator := auth.NewAuthenticator("dev-secret-key")
-
+	limiter := ratelimit.NewLimiter(RateLimitBurst, RateLimitPerSecond)
 	chat := &ChatService{
 		auth: authenticator,
+		limiter: limiter,
 	}
 
 	err = rpc.Register(chat)
