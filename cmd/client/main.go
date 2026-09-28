@@ -3,27 +3,60 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net/rpc"
+	"bufio"
+	"os"
+	"strings"
+	"time"
 )
+
+type RegisterRequest struct {
+	Username	string
+	Password	string
+}
+
+type RegisterResponse struct {
+	Error			string
+}
 
 type Message struct {
 	Token   string
 	User    string
 	Content string
 }
-
-func main() {
-
-	type AuthRequest struct {
+type AuthRequest struct {
 		Username string
 		Password string
 	}
 
-	type AuthResponse struct {
+type AuthResponse struct {
 		Token string
 		Error string
-	}
+}
+ 
+type StoredMessage struct {
+	From      string
+	Content   string
+	Timestamp time.Time
+}
+ 
+type GetMessagesRequest struct {
+	Token      string
+	SinceIndex int
+}
+ 
+type GetMessagesResponse struct {
+	Messages  []StoredMessage
+	NextIndex int
+	Error     string
+}
+
+
+func main() {
+
+	reader := bufio.NewReader(os.Stdin)
+
+	
 
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
@@ -32,49 +65,110 @@ func main() {
 	conn, err := tls.Dial("tcp", "localhost:8080", tlsConfig)
 
 	if err != nil {
-		log.Fatal("Failed to connect:", err)
+		fmt.Println("Failed to connect:", err)
+		os.Exit(1)
 	}
 	defer conn.Close()
 
 	client := rpc.NewClient(conn)
 	defer client.Close()
-
+	
+	fmt.Println("====RPC CHAT====")
 	fmt.Println("Connected to server via TLS")
+	fmt.Println("1. Login")
+	fmt.Println("2. Register")
 
-	fmt.Println("\n[1] Authenticating...")
-	authReq := AuthRequest{
-		Username: "ampar",
-		Password: "password123",
+	choice, _ := reader.ReadString('\n')
+	choice = strings.TrimSpace(choice)
+
+	fmt.Print("Username: ")
+	username, _ := reader.ReadString('\n')
+	username = strings.TrimSpace(username)
+
+	fmt.Print("Password: ")
+	password, _ := reader.ReadString('\n')
+
+	if choice == "2" {
+		var regResp RegisterResponse
+		err = client.Call("ChatService.Register", RegisterRequest{
+			Username: username, Password: password,
+		}, &regResp)
+		if err != nil {
+			fmt.Println("Register RPC failed", err)
+			os.Exit(1)
+		}
+		if regResp.Error != "" {
+			fmt.Println("Registration failed:", regResp.Error)
+			os.Exit(1)
+		}
+		fmt.Println("Registered! Now logging in...")
 	}
 
 	var authResp AuthResponse
 
-	err = client.Call("ChatService.Authenticate", authReq, &authResp)
+	err = client.Call("ChatService.Authenticate", AuthRequest{
+		Username: username, Password: password,
+	}, &authResp)
 	if err != nil {
-		log.Fatalf("Authentication failed: %s, authResp.Error")
+		fmt.Println("Authenticate RPC failed:", err)
+		os.Exit(1)
+	}
+	if authResp.Error != "" {
+		fmt.Println("Login failed:", authResp.Error)
+		os.Exit(1)
 	}
 
 	token := authResp.Token
-	fmt.Printf("Authenticated! Token: %s\n", token[:16]+"...")
+	fmt.Printf("\nLogged in as %s. Type a message and hit Enter. Type /quit to exit. \n\n",username)
+	go func(){
+		sinceIndex := 0
+		for{
+			time.Sleep(1 * time.Second)
+			var getResp GetMessagesResponse
+			err := client.Call("ChatService.GetMessages", GetMessagesRequest{
+				Token: token, SinceIndex: sinceIndex,
+			}, &getResp)
 
-	fmt.Println("n[2] Sending message...")
-	message := Message{
-		Token:   token,
-		User:    "ampar",
-		Content: "Hello from the RPC client!",
+			if err != nil{
+				fmt.Printf("\n[poll error] %v\nYou > ", err)
+				continue
+			} 
+			if getResp.Error != "" {
+				fmt.Printf("\n[poll error] %s\nYou > ", err)
+				continue
+			}
+
+
+			for _, m := range getResp.Messages {
+				if m.From != username {
+					fmt.Printf("\r[%s] %s\nYou>", m.From, m.Content)
+				}
+			}
+			sinceIndex = getResp.NextIndex
+		}
+	}()
+
+	for{
+		fmt.Print("You> ")
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			break
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if line == "/quit" {
+			fmt.Println("Goodbye!")
+			break
+		}
+		var reply string
+		err = client.Call("ChatService.SendMessage", Message{
+			Token: token, User: username, Content: line,
+		}, &reply)
+		if err != nil {
+			fmt.Println("Send failed:", err)
+		}
 	}
 
-	var reply string
-
-	err = client.Call(
-		"ChatService.SendMessage",
-		message,
-		&reply,
-	)
-
-	if err != nil {
-		log.Fatal("RPC call failed:", err)
 	}
-
-	fmt.Println("Server:", reply)
-}

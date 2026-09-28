@@ -29,13 +29,13 @@ func NewAuthenticator(secret string) *Authenticator {
 	}
 }
 
-func (a *Authenticator) Authenticate(username, password string) (*Token, error) {
-	if username == "" || password == "" {
-		return nil, fmt.Errorf("username and password required")
+func (a *Authenticator) IssueToken(username string) (*Token, error) {
+	if username == "" {
+		return nil, fmt.Errorf("username required")
 	}
 
 	now := time.Now()
-	tokenStr := fmt.Sprintf("%x", sha256.Sum256([]byte(username+password+a.tokenSecret+now.String())))
+	tokenStr := fmt.Sprintf("%x", sha256.Sum256([]byte(username+a.tokenSecret+now.String())))
 
 	token := &Token{
 		Value:     tokenStr,
